@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/gemm123/go-mongo/controllers"
 	"github.com/gemm123/go-mongo/database"
+	"github.com/gemm123/go-mongo/services"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,9 +16,17 @@ func main() {
 	}
 	defer database.Disconnect(client)
 
-	controller := controllers.NewController(client)
+	userCollection := client.Database("go-mongo").Collection("users")
+	service := services.NewUserService(userCollection)
+	controller := controllers.NewUserController(service)
 
 	r := gin.Default()
+
 	r.POST("/users", controller.PostUser)
+	r.GET("/users", controller.GetAllUser)
+	r.GET("/users/:name", controller.GetUserByName)
+	r.PUT("/users/:name", controller.UpdateUser)
+	r.DELETE("users/:name", controller.DeleteUser)
+
 	r.Run()
 }

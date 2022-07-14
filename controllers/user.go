@@ -1,48 +1,81 @@
 package controllers
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gemm123/go-mongo/models"
+	"github.com/gemm123/go-mongo/services"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type controller struct {
-	client *mongo.Client
+type userController struct {
+	userService services.UserService
 }
 
-func NewController(client *mongo.Client) *controller {
-	return &controller{
-		client: client,
-	}
+func NewUserController(userService services.UserService) *userController {
+	return &userController{userService}
 }
 
-// func (ctr *controller) GetUser(c *gin.Context) {
-// 	name := c.Param("name")
-
-// }
-
-func (ctr *controller) PostUser(c *gin.Context) {
+func (uc *userController) PostUser(c *gin.Context) {
 	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
-		c.Abort()
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	user.ID = primitive.NewObjectID()
+	if err := uc.userService.CreateUser(user); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
 
-	coll := ctr.client.Database("go-mongo").Collection("users")
+	c.JSON(http.StatusOK, gin.H{"msg": "success"})
+}
 
-	_, err := coll.InsertOne(context.TODO(), user)
+func (uc *userController) GetAllUser(c *gin.Context) {
+	users, err := uc.userService.GetAllUser()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
-		c.Abort()
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"msg": "success insert user"})
+	c.JSON(http.StatusOK, gin.H{"data": users})
+}
+
+func (uc *userController) GetUserByName(c *gin.Context) {
+	name := c.Param("name")
+	user, err := uc.userService.GetUserByName(name)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": user})
+}
+
+func (uc *userController) UpdateUser(c *gin.Context) {
+	name := c.Param("name")
+
+	var newUser models.User
+	if err := c.ShouldBindJSON(&newUser); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := uc.userService.UpdateUser(name, newUser); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"msg": "success"})
+}
+
+func (uc *userController) DeleteUser(c *gin.Context) {
+	name := c.Param("name")
+
+	if err := uc.userService.DeleteUser(name); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"msg": "success"})
 }
